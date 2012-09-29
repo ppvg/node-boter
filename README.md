@@ -11,7 +11,9 @@ Clone the repository or copy the files to your path of choice, and then:
 
 This should also install the development dependencies (a necessary evil at this point), so you can check whether everything was installed correctly by running:
 
-    $ npm test
+    $ make test
+
+_(Or `npm test`.)_
 
 Usage
 -----
@@ -26,14 +28,22 @@ More later on how to actually use the bot.
 Testing
 -------
 
-For testing, _Boter_ uses [Mocha](http://visionmedia.github.com/mocha/) and [should.js](https://github.com/visionmedia/should.js). In addition, [Mockery](https://github.com/mfncooper/mockery) and [Sinon.JS](http://sinonjs.org/) are used for mocking `node_irc`.
-
 To run the test:
 
     $ cd path/to/boter/
-    $ npm test
+    $ make test
 
-Alternatively, you can use `cake test` or run `mocha ./test/` directly.
+In addition, you can:
+
+ * use `make build` to build the CoffeeScript source to `lib/`;
+ * use `make monitor` to monitor and run the test when they change, or;
+ * use `make coverage` to generate a code coverage report (which is saved to `lib-cov/report.html`).
+
+Alternatively, you can use `npm [command]` instead of `make [command]` (they're equivalent).
+
+**Note:** `jscoverage` is needed to generate a coverage report.
+
+For testing, _Boter_ uses [Mocha](http://visionmedia.github.com/mocha/) and [should.js](https://github.com/visionmedia/should.js). In addition, [Mockery](https://github.com/mfncooper/mockery) and [Sinon.JS](http://sinonjs.org/) are used for mocking `node_irc`.
 
 License
 -------

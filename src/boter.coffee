@@ -19,7 +19,7 @@ class Message
 class Boter
   constructor: (@server, @nickname, @config) ->
     @client = new irc.Client @server, @nickname, @config
-    @handlers = []
+    @handlers = {}
 
 exports.Boter = Boter
 exports.User = User

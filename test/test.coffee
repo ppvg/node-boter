@@ -5,12 +5,12 @@ ircMock = { Client: sinon.spy() }
 boter = {}
 
 describe 'boter', ->
-
   before ->
     mockery.enable()
     mockery.registerMock 'irc', ircMock
     mockery.registerAllowable '../'
     mockery.registerAllowable './lib/boter'
+    mockery.registerAllowable './lib-cov/boter'
     boter = require '../'
 
   after ->
@@ -19,7 +19,7 @@ describe 'boter', ->
 
   describe 'boter.User', ->
     describe '#equals()', ->
-      it 'should return true if users have the name username and host', ->
+      it 'should return true if users have the same username and host', ->
         user1 = new boter.User 'user', 'some.host.foo'
         user2 = new boter.User 'user', 'some.host.foo'
         user1.equals(user2).should.be.true
