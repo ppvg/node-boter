@@ -27,6 +27,9 @@ class Boter
       'mention': [],
       'highlight': [],
       'other': []
+    @client.addListener 'pm', (from, message) ->
+      for handler in @handlers['pm']
+        handler.handle new Message(from, from, message)
 
   on: (args...) ->
     if args.length > 0
@@ -50,6 +53,8 @@ class Boter
     handlers = @handlers
     chainable =
       do: (callback) ->
+        if typeof callback isnt 'function'
+          throw new Error "Invalid callback (not a function)."
         handlers[eventTypes[type]].push {
           'filter': filter,
           'handle': callback
