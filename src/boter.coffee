@@ -28,19 +28,32 @@ class Boter
       'highlight': [],
       'other': []
 
-  on: (type, filter) ->
+  on: (args...) ->
+    if args.length > 0
+      if typeof args[0] is 'string'
+        type = args[0]
+        filter = () -> true
+      else if typeof args[0] is 'function'
+        type = 'other'
+        filter = args[0]
+
+    if args.length is 2
+      if typeof args[0] isnt 'string'
+        throw new Error "Invalid event type. First argument should be a string."
+      if typeof args[1] isnt 'function'
+        throw new Error "Invalid filter. Second argument should be a filter function."
+      filter = args[1]
+
+    if not eventTypes[type]?
+      throw new Error "Not a valid event type: '#{ type }'"
+
     handlers = @handlers
     chainable =
       do: (callback) ->
-        isString = typeof type is 'string'
-        isEvent = eventTypes[type]?
-        if isString and isEvent
-          if typeof filter isnt 'function'
-            filter = () -> true
-          handlers[eventTypes[type]].push {
-            'filter': filter,
-            'handle': callback
-          }
+        handlers[eventTypes[type]].push {
+          'filter': filter,
+          'handle': callback
+        }
 
 eventTypes =
   pm:        'pm',

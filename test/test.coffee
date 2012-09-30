@@ -3,22 +3,13 @@ sinon = require 'sinon'
 
 
 ircMock = { Client: sinon.spy() }
-Boter = {}
-Message = {}
-User = {}
+mockery.enable()
+mockery.registerMock 'irc', ircMock
+mockery.registerAllowable '../'
+mockery.registerAllowable './lib/boter'
+mockery.registerAllowable './lib-cov/boter'
 
-
-before ->
-  mockery.enable()
-  mockery.registerMock 'irc', ircMock
-  mockery.registerAllowable '../'
-  mockery.registerAllowable './lib/boter'
-  mockery.registerAllowable './lib-cov/boter'
-  {Boter, Message, User} = require '../'
-
-after ->
-  mockery.deregisterMock 'irc'
-  mockery.disable()
+{User, Message, Boter} = require '../'
 
 
 describe 'User', ->
@@ -42,6 +33,7 @@ describe 'User', ->
 describe 'Message', ->
   text = "This is some Random Message with Important Capalization."
   message = {}
+
   beforeEach ->
     message = new Message 'user', 'context', text
 
@@ -57,41 +49,57 @@ describe 'Boter', ->
     server: 'irc.server.foo'
     name: 'MyBoter'
     opts: {'option': true}
+
   afterEach ->
     ircMock.Client.reset()
 
-  it 'creates irc client with same parameters', ->
+  it 'creates irc client with same arguments', ->
     bot = new Boter args.server, args.name, args.opts
     ircMock.Client.calledOnce.should.be.true
     ircMock.Client.calledWithNew().should.be.true
     ircMock.Client.calledWithExactly(args.server, args.name, args.opts).should.be.true
 
   describe '#on()', ->
+    dummy_handler = (message, bot) -> bot.say message.context, 'test'
+    dummy_filter = (message) -> message.text == '42'
     bot = {}
+
     beforeEach ->
       bot = new Boter args.server, args.name, args.opts
 
     it 'returns object which has property #do()', ->
       do_obj = bot.on 'pm'
-      do_obj.should.be.a('object').and.have.property('do')
-      do_obj.do.should.be.a('function')
+      do_obj.should.be.a('object').and.have.property 'do'
+      do_obj.do.should.be.a 'function'
 
-    it 'correctly categorizes handler types using the first parameter', ->
+    it 'categorizes event type using single string argument', ->
       testHandlerType ['pm', 'private', 'query'], 'pm'
       testHandlerType ['mention'], 'mention'
       testHandlerType ['highlight', 'highlight'], 'highlight'
       testHandlerType ['other', 'all', 'any', '*'], 'other'
 
     testHandlerType = (types, expected) ->
-      dummy_handler = () -> 'test'
       bot.on(type).do(dummy_handler) for type in types
-      bot.handlers.should.be.a('object').and.have.property(expected)
-      bot.handlers[expected].should.have.lengthOf(types.length)
+      bot.handlers.should.be.a('object').and.have.property expected
+      bot.handlers[expected].should.have.length types.length
       for handler in bot.handlers[expected]
-        handler.should.be.a('object')
-        handler.filter.should.be.a('function')
-        handler.handle.should.equal(dummy_handler)
+        handler.should.be.a 'object'
+        handler.filter.should.be.a 'function'
+        handler.handle.should.equal dummy_handler
+
+    it 'throws an Error if single argument is invalid string', ->
+      ( -> bot.on('invalid').do(dummy_handler))
+        .should.throw()
+      handlers.should.be.empty for handlers in bot.handlers
+
+    it 'categorizes as \'other\' with single filter() argument', ->
+      bot.on(dummy_filter).do(dummy_handler)
+      bot.handlers['other'].should.have.length 1
+      bot.handlers['other'][0].filter.should.equal dummy_filter
+
+    it 'uses first argument as event type and second as filter()', ->
+      bot.on('pm', dummy_filter).do(dummy_handler)
+      bot.handlers['pm'].should.have.length 1
+      bot.handlers['pm'][0].filter.should.equal dummy_filter
 
     describe '#do()', ->
-
-
