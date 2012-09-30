@@ -12,117 +12,104 @@ describe 'Boter', ->
   args =
     server: 'irc.server.foo'
     name: 'MyBoter'
-    opts: {'option': true}
+    opts:
+      option: true
+      aliasses: ['Boter', 'BoterBot']
+  someUser = 'SomeUser'
+  someMsg = 'The War of the Cookies is upon us!'
 
   before ->
     mockery.enable()
-    mockery.registerAllowable '../'
-    mockery.registerAllowable './lib/boter'
-    mockery.registerAllowable './lib-cov/boter'
+    mockery.registerAllowables ['../', './lib/boter', './lib-cov/boter', 'events']
     mockery.registerMock 'irc', {Client: IrcClientMock}
     {Boter} = (require '../')
   after ->
     mockery.deregisterMock 'irc'
+    mockery.disable()
 
   describe 'constructor', ->
-    it 'should pass on its argument to the irc client', (done) ->
+    it 'should pass on its arguments to the irc client', (done) ->
       called = false
       callback = (server, name, opts) ->
         called.should.be.false
         server.should.equal args.server
         name.should.equal args.name
-        opts.should.equal args.opts
+        opts.should.eql args.opts
         called = true
         ircSpy.removeListener 'construction', callback
         done()
       ircSpy.on 'construction', callback
       bot = new Boter args.server, args.name, args.opts
 
-  describe '#on()', ->
-    dummy_handler = (message, bot) -> bot.say message.context, 'test'
-    dummy_filter = (message) -> message.text == '42'
-    bot = {}
+    it 'should keep a list of aliasses', ->
+      bot = new Boter args.server, args.name, args.opts
+      bot.aliasses.should.eql ['myboter', 'boter', 'boterbot']
 
+  describe 'when PM is received', ->
+    it 'should emit \'pm\' event with message object', (done) ->
+      bot = new Boter args.server, args.name, args.opts
+      bot.on 'pm', (message) ->
+        message.should.be.a 'object'
+        message.should.eql {
+          from: someUser,
+          context: someUser, # context matches the sending user
+          original: someMsg,
+          text: someMsg.toLowerCase()
+        }
+        done()
+      bot.client.emit 'pm', someUser, someMsg
+
+  describe 'when a public message is received', ->
+    channel = '#cookies'
+    bot = {}
     beforeEach ->
       bot = new Boter args.server, args.name, args.opts
 
-    it 'should return an object with a property #do()', ->
-      do_obj = bot.on 'pm'
-      do_obj.should.be.a('object').and.have.property 'do'
-      do_obj.do.should.be.a 'function'
+    describe 'the message starts with \'BotNick:\'', ->
+      it 'should emit a \'mention\' event', (done) ->
+        bot.on 'mention', -> done()
+        msg = args.name+': '+someMsg
+        bot.client.emit 'message#', someUser, channel, msg
 
-    describe 'when given a string as the first argument', ->
-      it 'should use it as the event type', ->
-        testHandlerType ['pm', 'private', 'query'], 'pm'
-        testHandlerType ['mention'], 'mention'
-        testHandlerType ['highlight', 'highlight'], 'highlight'
-        testHandlerType ['other', 'all', 'any', '*'], 'other'
+      it 'should do the same if an alias is mentioned', (done) ->
+        bot.on 'mention', -> done()
+        alias = args.opts.aliasses[1]
+        msg = alias+': '+someMsg
+        bot.client.emit 'message#', someUser, '#cookies', msg
 
-      testHandlerType = (types, expected) ->
-        # Note: this depends on #do() to work correctly.
-        bot.on(type).do(dummy_handler) for type in types
-        bot.handlers.should.be.a('object').and.have.property expected
-        bot.handlers[expected].should.have.length types.length
+      it 'should do this if someone else is mentioned', (done) ->
+        mentioned = false
+        bot.on 'mention', -> mentioned = true
+        msg = 'Stranger: '+someMsg
+        callback = ->
+          mentioned.should.be.false
+          done()
+        bot.client.emit 'message#', someUser, '#cookies', msg
+        process.nextTick callback
 
-      it 'should throw an Error if it is invalid or unknown', ->
-        ( -> bot.on('invalid').do(dummy_handler))
-          .should.throw()
-        handlers.should.be.empty for handlers in bot.handlers
+      it 'should pass an instance of Message to the callback', (done) ->
+        bot.on 'mention', (message) ->
+          message.should.be.a('object')
+          message.constructor.name.should.equal 'Message'
+          message.from.should.equal someUser
+          message.context.should.equal channel
+          done()
+        msg = args.name+': '+someMsg
+        bot.client.emit 'message#', someUser, channel, msg
 
-    describe 'when given only a string', ->
-      it 'should offer default filter() which always returns true', ->
-        bot.on('pm').do(dummy_handler)
-        handler = bot.handlers['pm'][0]
-        handler.filter().should.be.true
-        handler.handle.should.equal dummy_handler
+      it 'should remove the \'BotNick: \' prefix from the message', (done) ->
+        bot.on 'mention', (message) ->
+          message.should.be.a('object')
+          message.should.eql {
+            from: someUser,
+            context: channel,
+            original: someMsg,
+            text: someMsg.toLowerCase()
+          }
+          done()
+        msg = args.name+': '+someMsg
+        bot.client.emit 'message#', someUser, channel, msg
 
-    describe 'when given only a filter() function', ->
-      it 'should categorize the event as \'other\'', ->
-        bot.on(dummy_filter).do(dummy_handler)
-        other = bot.handlers['other']
-        other.should.have.length 1
-        other[0].filter.should.equal dummy_filter
+    describe 'when the message contains \'BotNick\'', ->
+      it.skip 'should emit a \'highlight\' event', (done) ->
 
-    describe 'when given a string and a function', ->
-      it 'should use string as event type and function as filter', ->
-        bot.on('pm', dummy_filter).do(dummy_handler)
-        pm = bot.handlers['pm']
-        pm.should.have.length 1
-        pm[0].filter.should.equal dummy_filter
-
-    describe '#do()', ->
-      describe 'when given only a function', ->
-        it 'should store the event with the function as its handler', ->
-          types = ['pm', 'mention', 'highlight', 'other']
-          bot.on(type, dummy_filter).do(dummy_handler) for type in types
-          for type in types
-            bot.handlers.should.have.property(type)
-            for handler in bot.handlers
-              handler.should.be.a 'object'
-              handler.filter.should.equal dummy_filter
-              handler.handle.should.equal dummy_handler
-
-      describe 'when given something other than a function', ->
-        it 'should throw an Error', ->
-          ( -> bot.on(dummy_filter).do('a little dance'))
-            .should.throw()
-          bot.handlers['other'].should.have.length 0
-
-  describe 'when an event is received from the IRC Client', ->
-    bot = {}
-
-    beforeEach ->
-      bot = new Boter args.server, args.name, args.opts
-
-    describe.skip 'when it is a PM', ->
-      describe 'when a PM handler is registered', ->
-        it 'should be passed to a PM handler if one is registered', (done) ->
-          called = false
-          bot.on('pm').do((message) ->
-            console.log "MESSAGE!!!!\n\n\n\n"
-            called.should.be.false
-            message.text.should.equal 'Message!'
-            called = true
-            done()
-          )
-          bot.client.emit 'pm', 'someone', 'Message!'

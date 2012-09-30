@@ -1,6 +1,8 @@
 #!/usr/bin/env coffee
 
+{EventEmitter} = require 'events'
 irc = require 'irc'
+
 show = console.log
 error = console.error
 
@@ -15,65 +17,64 @@ class User
 
 class Message
   constructor: (@from, @context, text) ->
-    this.original = text
-    this.text = text.toLowerCase()
+    @original = text
+    @text = text.toLowerCase()
+  trimMentionPrefix: () ->
+    @text = @text.replace mentionExpression, ''
+    @original = @original.replace mentionExpression, ''
 
 
-class Boter
+class Boter extends EventEmitter
   constructor: (@server, @nickname, @config) ->
+    @aliasses = [@nickname.toLowerCase()]
+    if @config?.aliasses?.length
+      @aliasses.push alias.toLowerCase() for alias in @config.aliasses
     @client = new irc.Client @server, @nickname, @config
-    @handlers =
-      'pm': [],
-      'mention': [],
-      'highlight': [],
-      'other': []
-    @client.addListener 'pm', (from, message) ->
-      for handler in @handlers['pm']
-        handler.handle new Message(from, from, message)
 
-  on: (args...) ->
-    if args.length > 0
-      if typeof args[0] is 'string'
-        type = args[0]
-        filter = () -> true
-      else if typeof args[0] is 'function'
-        type = 'other'
-        filter = args[0]
+    @client.on 'pm', (from, text) =>
+      message = new Message from, from, text
+      @emit 'pm', message
 
-    if args.length is 2
-      if typeof args[0] isnt 'string'
-        throw new Error "Invalid event type. First argument should be a string."
-      if typeof args[1] isnt 'function'
-        throw new Error "Invalid filter. Second argument should be a filter function."
-      filter = args[1]
+    @client.on 'message#', (from, to, text) =>
+      message = new Message from, to, text
+      if @isMentionedIn message
+        message.trimMentionPrefix()
+        @emit 'mention', message
+    #   else if indexOfNick isnt -1
+    #     highlight = true
 
-    if not eventTypes[type]?
-      throw new Error "Not a valid event type: '#{ type }'"
+  isMentionedIn: (message) ->
+    mentioned = false
+    match = message.text.match mentionExpression
+    if match? and match[1] in @aliasses
+      mentioned = true
+    mentioned
 
-    handlers = @handlers
-    chainable =
-      do: (callback) ->
-        if typeof callback isnt 'function'
-          throw new Error "Invalid callback (not a function)."
-        handlers[eventTypes[type]].push {
-          'filter': filter,
-          'handle': callback
-        }
+  isHighlightedIn: (message) ->
+
+
+# According to RCF 2812 (http://tools.ietf.org/html/rfc2812#section-2.3.1)
+# nickname = ( letter / special ) *8( letter / digit / special / "-" )
+# special  = "[", "]", "\", "`", "_", "^", "{", "|", "}"
+mentionExpression = ///
+  ^ # starts with
+  (
+    [a-zA-Z\[\]\\`_^\{|\}]     # letter / special
+    [a-zA-Z0-9\[\]\\`_^\{|\}-] # letter / digit / special / '-'
+      {1,15}                   # total length of 2 through 16
+  )        # capture username
+  [:;,]\s? # followed by ':', ';' or ',' (and optional whitespace)
+///
 
 eventTypes =
-  pm:        'pm',
-  private:   'pm',
-  query:     'pm',
-  mention:   'mention',
-  highlight: 'highlight',
-  hilight:   'highlight',
-  other:     'other',
-  all:       'other',
-  any:       'other',
-  '*':       'other'
+  pm: ['pm', 'private', 'query'],
+  mention: ['mention'],
+  highlight: ['highlight', 'hilight'],
+  other: ['other', 'public'],
+  all: ['all', 'any', '*']
 
 
 exports.Boter = Boter
 exports.User = User
 exports.Message = Message
-
+exports.mentionExpression = mentionExpression

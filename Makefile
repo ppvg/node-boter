@@ -20,8 +20,9 @@ coverage: instrument
 	@BOTER_COV=1 $(MOCHA) $(MOCHA_OPTS) \
 	--reporter html-cov > lib-cov/report.html
 
-instrument:
-	@jscoverage lib lib-cov
+instrument: build
+	@rm -rf ./lib-cov
+	@jscoverage ./lib ./lib-cov
 
 .PHONY: build test monitor coverage instrument
 
