@@ -9,8 +9,9 @@ error = console.error
 
 class User
   constructor: (user, host) ->
-    @user = user?.toLowerCase()
-    @host = host?.toLowerCase()
+    if not user or not host then throw new Error 'Invalid username or hostname.'
+    @user = user.toLowerCase()
+    @host = host.toLowerCase()
   equals: (other) ->
     other.user.toLowerCase()==@user and other.host.toLowerCase()==@host
 
@@ -19,9 +20,9 @@ class Message
   constructor: (@from, @context, text) ->
     @original = text
     @text = text.toLowerCase()
-  trimMentionPrefix: () ->
-    @text = @text.replace mentionExpression, ''
-    @original = @original.replace mentionExpression, ''
+  trimHighlight: () ->
+    @text = @text.replace highlightExpression, ''
+    @original = @original.replace highlightExpression, ''
 
 
 class Boter extends EventEmitter
@@ -33,30 +34,32 @@ class Boter extends EventEmitter
 
     @client.on 'pm', (from, text) =>
       message = new Message from, from, text
+      message.reply = (reply) =>
+        @client.say from, reply
       @emit 'pm', message
 
     @client.on 'message#', (from, to, text) =>
       message = new Message from, to, text
-      if @isMentionedIn message
-        message.trimMentionPrefix()
+      message.reply = (reply) =>
+        @client.say to, reply
+      if @isHighlightedIn message
+        message.trimHighlight()
+        @emit 'highlight', message
+      else if @isMentionedIn message
         @emit 'mention', message
-    #   else if indexOfNick isnt -1
-    #     highlight = true
-
-  isMentionedIn: (message) ->
-    mentioned = false
-    match = message.text.match mentionExpression
-    if match? and match[1] in @aliasses
-      mentioned = true
-    mentioned
 
   isHighlightedIn: (message) ->
+    match = message.text.match highlightExpression
+    match? and match[1] in @aliasses
 
+  isMentionedIn: (message) ->
+    containsAlias = (alias) -> message.text.indexOf(alias) > -1
+    @aliasses.some containsAlias
 
 # According to RCF 2812 (http://tools.ietf.org/html/rfc2812#section-2.3.1)
 # nickname = ( letter / special ) *8( letter / digit / special / "-" )
 # special  = "[", "]", "\", "`", "_", "^", "{", "|", "}"
-mentionExpression = ///
+highlightExpression = ///
   ^ # starts with
   (
     [a-zA-Z\[\]\\`_^\{|\}]     # letter / special
@@ -77,4 +80,4 @@ eventTypes =
 exports.Boter = Boter
 exports.User = User
 exports.Message = Message
-exports.mentionExpression = mentionExpression
+exports.highlightExpression = highlightExpression

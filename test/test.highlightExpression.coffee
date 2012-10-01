@@ -1,5 +1,5 @@
-describe 'mentionExpression', ->
-  mentionExpression = {}
+describe 'highlightExpression', ->
+  highlightExpression = {}
   validNicks = [
     'nick',
     '^nick',
@@ -20,10 +20,10 @@ describe 'mentionExpression', ->
     '"someone"'
   ]
   test = (nick, expected) ->
-    (mentionExpression.test nick).should.equal expected
+    (highlightExpression.test nick).should.equal expected
 
   before ->
-    {mentionExpression} = require '../'
+    {highlightExpression} = require '../'
 
   describe 'when the nickname is invalid', ->
     it 'should never match', ->

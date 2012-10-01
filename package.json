@@ -4,10 +4,12 @@
   "description": "A simple library for writing smooth IRC bots.",
   "main": "index.js",
   "directories": {
-    "test": "test"
+    "test": "test",
+    "lib": "lib"
   },
   "dependencies": {
-    "irc": "~0.3.4"
+    "irc": "~0.3.4",
+    "events": "~0.5.0"
   },
   "devDependencies": {
     "coffee-script": "~1.3.3",
@@ -18,8 +20,8 @@
   "scripts": {
     "build": "make build",
     "test": "make test",
-    "prepublish": "make build",
-    "coverage": "make coverage"
+    "coverage": "make coverage",
+    "prepublish": "make build"
   },
   "repository": "",
   "keywords": [

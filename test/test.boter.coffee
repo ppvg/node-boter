@@ -1,10 +1,13 @@
 mockery = require 'mockery'
 EventEmitter = (require 'events').EventEmitter
 
-ircSpy = new EventEmitter()
+ircConstructorSpy = new EventEmitter()
+ircSaySpy = new EventEmitter()
 class IrcClientMock extends EventEmitter
   constructor: (args...) ->
-    ircSpy.emit 'construction', args...
+    ircConstructorSpy.emit 'construction', args...
+  say: (args...) ->
+    ircSaySpy.emit 'called', args...
 
 
 describe 'Boter', ->
@@ -36,9 +39,9 @@ describe 'Boter', ->
         name.should.equal args.name
         opts.should.eql args.opts
         called = true
-        ircSpy.removeListener 'construction', callback
+        ircConstructorSpy.removeListener 'construction', callback
         done()
-      ircSpy.on 'construction', callback
+      ircConstructorSpy.on 'construction', callback
       bot = new Boter args.server, args.name, args.opts
 
     it 'should keep a list of aliasses', ->
@@ -46,18 +49,33 @@ describe 'Boter', ->
       bot.aliasses.should.eql ['myboter', 'boter', 'boterbot']
 
   describe 'when PM is received', ->
-    it 'should emit \'pm\' event with message object', (done) ->
+    bot = {}
+    beforeEach ->
       bot = new Boter args.server, args.name, args.opts
+
+    it 'should emit \'pm\' event with message object', (done) ->
       bot.on 'pm', (message) ->
         message.should.be.a 'object'
-        message.should.eql {
-          from: someUser,
-          context: someUser, # context matches the sending user
-          original: someMsg,
-          text: someMsg.toLowerCase()
-        }
+        message.from.should.equal someUser
+        message.context.should.equal someUser # context matches the sender
+        message.original.should.equal someMsg
+        message.text.should.equal someMsg.toLowerCase()
         done()
       bot.client.emit 'pm', someUser, someMsg
+
+    describe 'message#reply()', ->
+      it 'should send a PM to the sender', (done) ->
+        called = false
+        callback = (context, message) ->
+          context.should.equal someUser
+          message.should.equal someMsg
+          called = true
+          ircSaySpy.removeListener 'called', callback
+          done()
+        ircSaySpy.on 'called', callback
+        bot.on 'pm', (message) ->
+          message.reply someMsg
+        bot.client.emit 'pm', someUser, 'hi there!'
 
   describe 'when a public message is received', ->
     channel = '#cookies'
@@ -65,30 +83,30 @@ describe 'Boter', ->
     beforeEach ->
       bot = new Boter args.server, args.name, args.opts
 
-    describe 'the message starts with \'BotNick:\'', ->
-      it 'should emit a \'mention\' event', (done) ->
-        bot.on 'mention', -> done()
+    describe 'when the message starts with \'BotNick:\'', ->
+      it 'should emit a \'highlight\' event', (done) ->
+        bot.on 'highlight', -> done()
         msg = args.name+': '+someMsg
         bot.client.emit 'message#', someUser, channel, msg
 
-      it 'should do the same if an alias is mentioned', (done) ->
-        bot.on 'mention', -> done()
+      it 'should do the same if an alias is highlighted', (done) ->
+        bot.on 'highlight', -> done()
         alias = args.opts.aliasses[1]
         msg = alias+': '+someMsg
         bot.client.emit 'message#', someUser, '#cookies', msg
 
-      it 'should do this if someone else is mentioned', (done) ->
-        mentioned = false
-        bot.on 'mention', -> mentioned = true
+      it 'should do this if someone else is highlighted', (done) ->
+        highlighted = false
+        bot.on 'highlight', -> highlighted = true
         msg = 'Stranger: '+someMsg
         callback = ->
-          mentioned.should.be.false
+          highlighted.should.be.false
           done()
         bot.client.emit 'message#', someUser, '#cookies', msg
         process.nextTick callback
 
       it 'should pass an instance of Message to the callback', (done) ->
-        bot.on 'mention', (message) ->
+        bot.on 'highlight', (message) ->
           message.should.be.a('object')
           message.constructor.name.should.equal 'Message'
           message.from.should.equal someUser
@@ -98,18 +116,40 @@ describe 'Boter', ->
         bot.client.emit 'message#', someUser, channel, msg
 
       it 'should remove the \'BotNick: \' prefix from the message', (done) ->
-        bot.on 'mention', (message) ->
+        bot.on 'highlight', (message) ->
           message.should.be.a('object')
-          message.should.eql {
-            from: someUser,
-            context: channel,
-            original: someMsg,
-            text: someMsg.toLowerCase()
-          }
+          message.from.should.equal someUser
+          message.context.should.equal channel
+          message.original.should.equal someMsg
+          message.text.should.equal someMsg.toLowerCase()
           done()
         msg = args.name+': '+someMsg
         bot.client.emit 'message#', someUser, channel, msg
 
     describe 'when the message contains \'BotNick\'', ->
-      it.skip 'should emit a \'highlight\' event', (done) ->
+      it 'should emit a \'mention\' event', (done) ->
+        bot.on 'mention', -> done()
+        msg = someMsg+' might be something for '+args.name
+        bot.client.emit 'message#', someUser, channel, msg
+
+      it 'should do the same if an alias is mentioned', (done) ->
+        bot.on 'mention', -> done()
+        alias = args.opts.aliasses[1]
+        msg = someMsg+' might be something for '+alias
+        bot.client.emit 'message#', someUser, channel, msg
+
+    describe 'message#reply()', ->
+      it 'should send a message to the same channel', (done) ->
+        called = false
+        callback = (context, message) ->
+          context.should.equal channel
+          message.should.equal someMsg
+          called = true
+          ircSaySpy.removeListener 'called', callback
+          done()
+        ircSaySpy.on 'called', callback
+        bot.on 'highlight', (message) ->
+          message.reply someMsg
+        msg = args.name+': hi there!'
+        bot.client.emit 'message#', someUser, channel, msg
 
