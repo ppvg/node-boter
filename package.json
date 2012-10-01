@@ -1,5 +1,5 @@
 {
-  "name": "Boter",
+  "name": "boter",
   "version": "0.1.0",
   "description": "A simple library for writing smooth IRC bots.",
   "main": "index.js",

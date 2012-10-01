@@ -1,0 +1,6 @@
+.git
+.gitignore
+.gitmodules
+.*.swp
+lib-cov/
+node_modules/
