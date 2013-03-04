@@ -1,155 +1,156 @@
 mockery = require 'mockery'
-EventEmitter = (require 'events').EventEmitter
+should = require 'should'
+mocks = require './mocks'
+path = require 'path'
 
-ircConstructorSpy = new EventEmitter()
-ircSaySpy = new EventEmitter()
-class IrcClientMock extends EventEmitter
-  constructor: (args...) ->
-    ircConstructorSpy.emit 'construction', args...
-  say: (args...) ->
-    ircSaySpy.emit 'called', args...
+Boter = null
+
+ircMock =
+  setup: ->
+    mockery.enable()
+    mockery.registerAllowables ['../', './lib/Boter', './Message', './regex', 'path']
+    mockery.registerMock 'irc', { Client: mocks.IrcClient }
+    mockery.registerMock 'builtins', mocks.builtins
+    Boter = require '../'
+  tearDown: ->
+    mockery.deregisterMock 'irc'
+    mockery.deregisterMock 'builtins'
+    mockery.disable()
+    Boter = null
 
 
 describe 'Boter', ->
-  Boter = {}
+  bot = {}
   args =
     server: 'irc.server.foo'
-    name: 'MyBoter'
+    name: 'BoterBot'
     opts:
-      option: true
-      aliasses: ['Boter', 'BoterBot']
-  someUser = 'SomeUser'
-  someMsg = 'The War of the Cookies is upon us!'
+      realName: 'Boter, the CoffeeScript bot'
+      aliasses: ['Boter', 'MyBoter']
 
-  before ->
-    mockery.enable()
-    mockery.registerAllowables ['../', './lib/boter', './lib-cov/boter', 'events']
-    mockery.registerMock 'irc', {Client: IrcClientMock}
-    {Boter} = (require '../')
-  after ->
-    mockery.deregisterMock 'irc'
-    mockery.disable()
+  before ircMock.setup
+  after  ircMock.tearDown
+
+  beforeEach ->
+    mocks.IrcClient.reset()
+    bot = new Boter args.server, args.name, args.opts
 
   describe 'constructor', ->
-    it 'should pass on its arguments to the irc client', (done) ->
-      called = false
-      callback = (server, name, opts) ->
-        called.should.be.false
-        server.should.equal args.server
-        name.should.equal args.name
-        opts.should.eql args.opts
-        called = true
-        ircConstructorSpy.removeListener 'construction', callback
-        done()
-      ircConstructorSpy.on 'construction', callback
-      bot = new Boter args.server, args.name, args.opts
+    it 'should instantiate an irc.Client', ->
+      mocks.IrcClient.calledWithNew().should.be.true
 
     it 'should keep a list of aliasses', ->
-      bot = new Boter args.server, args.name, args.opts
-      bot.aliasses.should.eql ['myboter', 'boter', 'boterbot']
+      bot.aliasses.should.eql ['boterbot', 'boter', 'myboter']
 
-  describe 'when PM is received', ->
-    bot = {}
-    beforeEach ->
-      bot = new Boter args.server, args.name, args.opts
+    basePath = path.dirname module.filename
 
-    it 'should emit \'pm\' event with message object', (done) ->
-      bot.on 'pm', (message) ->
-        message.should.be.a 'object'
-        message.from.should.equal someUser
-        message.context.should.equal someUser # context matches the sender
-        message.original.should.equal someMsg
-        message.text.should.equal someMsg.toLowerCase()
-        done()
-      bot.client.emit 'pm', someUser, someMsg
+    it 'should set a default plugin path relative to the parent module', ->
+      # something like "/home/user/projects/Boter/test/plugins"
+      bot.config.pluginPath.should.equal path.resolve(basePath, 'plugins')
 
-    describe 'message#reply()', ->
-      it 'should send a PM to the sender', (done) ->
-        called = false
-        callback = (context, message) ->
-          context.should.equal someUser
-          message.should.equal someMsg
-          called = true
-          ircSaySpy.removeListener 'called', callback
-          done()
-        ircSaySpy.on 'called', callback
-        bot.on 'pm', (message) ->
-          message.reply someMsg
-        bot.client.emit 'pm', someUser, 'hi there!'
+    it 'should set a default data path relative to the parent module', ->
+      # something like "/home/user/projects/Boter/test/data"
+      bot.config.dataPath.should.equal path.resolve(basePath, 'data')
+
+    it.skip 'should load the built-in commands', ->
+      bot.commands.example.should.equal mocks.builtins.example
+
+  describe 'load plugin', ->
+    plugin =
+      events:
+        highlight: (message) ->
+      commands:
+        barrelroll:
+          help: "Does a barrelroll"
+          run: (message) ->
+        boter:
+          help: "Boter the entire channel"
+          run: (message) ->
+
+    it 'should add the plugin to bot.plugins', ->
+      numPlugins = bot.plugins.length
+      bot.load plugin
+      bot.plugins.length.should.equal numPlugins + 1
+      bot.plugins[numPlugins].should.equal plugin
+
+    it "should add the plugin's commands to bot.commands", ->
+      bot.load plugin
+      bot.commands.barrelroll.should.equal plugin.commands.barrelroll
+      bot.commands.boter.should.equal plugin.commands.boter
+
+    describe 'when the same plugin is added twice', ->
+      it 'should throw an error', ->
+        bot.load plugin
+        (-> bot.load plugin).should.throw()
+
+  describe 'when a command is received', ->
+    plugin =
+      commands:
+        test:
+          help: "meh"
+          run: (message) ->
+
+    it "should call the correct plugin's .run()", (done) ->
+      callbacks = 0
+      plugin.commands.test.run = (message) ->
+        done() if (callbacks += 1) >= 2
+
+      bot.load plugin
+      bot._onPM 'userx', '!test something'
+      bot._onOther 'userx', '#hack42', '!test something'
+
+    it 'should trim the command from the text', (done) ->
+      callbacks = 0
+      plugin.commands.test.run = (message) ->
+        message.text.should.eql 'something'
+        message.original.should.eql 'SOMEthing'
+        done() if (callbacks += 1) >= 2
+
+      bot.load plugin
+      bot._onPM 'userx', '!test SOMEthing'
+      bot._onOther 'userx', '#hack42', '!test SOMEthing'
+
+    describe 'when config.commandPrefix is set', ->
+      it 'should still correctly identify commands', (done) ->
+        bot.config.commandPrefix = '@'
+        callbacks = 0
+        plugin.commands.test.run = (message) ->
+          message.text.should.eql 'something'
+          done() if (callbacks += 1) >= 2
+
+        bot.load plugin
+        bot._onPM 'userx', '@test something'
+        bot._onOther 'userx', '#hack42', '@test something'
+
+  describe 'when a normal PM is received', ->
+    it "should call the plugin's 'pm' event handler", (done) ->
+      plugin =
+        events:
+          pm: (message) -> done()
+      bot.load plugin
+      bot._onPM 'userx', 'something'
 
   describe 'when a public message is received', ->
-    channel = '#cookies'
-    bot = {}
-    beforeEach ->
-      bot = new Boter args.server, args.name, args.opts
+    describe 'when it highlights the bot', ->
+      it "should call the plugin's 'highlight' event handler", (done) ->
+        plugin =
+          events:
+            highlight: (message) -> done()
+        bot.load plugin
+        bot._onOther 'userx', '#hack42', 'BoterBot: something'
 
-    describe 'when the message starts with \'BotNick:\'', ->
-      it 'should emit a \'highlight\' event', (done) ->
-        bot.on 'highlight', -> done()
-        msg = args.name+': '+someMsg
-        bot.client.emit 'message#', someUser, channel, msg
+    describe 'when it mentions the bot', ->
+      it "should call the plugin's 'mention' event handler", (done) ->
+        plugin =
+          events:
+            mention: (message) -> done()
+        bot.load plugin
+        bot._onOther 'userx', '#hack42', 'Something about Boterbot'
 
-      it 'should do the same if an alias is highlighted', (done) ->
-        bot.on 'highlight', -> done()
-        alias = args.opts.aliasses[1]
-        msg = alias+': '+someMsg
-        bot.client.emit 'message#', someUser, '#cookies', msg
-
-      it 'should do this if someone else is highlighted', (done) ->
-        highlighted = false
-        bot.on 'highlight', -> highlighted = true
-        msg = 'Stranger: '+someMsg
-        callback = ->
-          highlighted.should.be.false
-          done()
-        bot.client.emit 'message#', someUser, '#cookies', msg
-        process.nextTick callback
-
-      it 'should pass an instance of Message to the callback', (done) ->
-        bot.on 'highlight', (message) ->
-          message.should.be.a('object')
-          message.constructor.name.should.equal 'Message'
-          message.from.should.equal someUser
-          message.context.should.equal channel
-          done()
-        msg = args.name+': '+someMsg
-        bot.client.emit 'message#', someUser, channel, msg
-
-      it 'should remove the \'BotNick: \' prefix from the message', (done) ->
-        bot.on 'highlight', (message) ->
-          message.should.be.a('object')
-          message.from.should.equal someUser
-          message.context.should.equal channel
-          message.original.should.equal someMsg
-          message.text.should.equal someMsg.toLowerCase()
-          done()
-        msg = args.name+': '+someMsg
-        bot.client.emit 'message#', someUser, channel, msg
-
-    describe 'when the message contains \'BotNick\'', ->
-      it 'should emit a \'mention\' event', (done) ->
-        bot.on 'mention', -> done()
-        msg = someMsg+' might be something for '+args.name
-        bot.client.emit 'message#', someUser, channel, msg
-
-      it 'should do the same if an alias is mentioned', (done) ->
-        bot.on 'mention', -> done()
-        alias = args.opts.aliasses[1]
-        msg = someMsg+' might be something for '+alias
-        bot.client.emit 'message#', someUser, channel, msg
-
-    describe 'message#reply()', ->
-      it 'should send a message to the same channel', (done) ->
-        called = false
-        callback = (context, message) ->
-          context.should.equal channel
-          message.should.equal someMsg
-          called = true
-          ircSaySpy.removeListener 'called', callback
-          done()
-        ircSaySpy.on 'called', callback
-        bot.on 'highlight', (message) ->
-          message.reply someMsg
-        msg = args.name+': hi there!'
-        bot.client.emit 'message#', someUser, channel, msg
-
+    describe "when it's an ordinary message", ->
+      it "should call the plugin's 'other' event handler", (done) ->
+        plugin =
+          events:
+            other: (message) -> done()
+        bot.load plugin
+        bot._onOther 'userx', '#hack42', 'Something about ponies'
