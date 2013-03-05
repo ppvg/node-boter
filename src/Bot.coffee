@@ -195,6 +195,8 @@ openUserDB = ->
   db = new UserDB path.resolve @config.dataPath, 'users.tiny'
   db.once 'error', (err) =>
     @emit 'error', new Error "Failed to open user database."
+  db.on 'log', (message) =>
+    @emit 'log', '[UserDB] ' + message
   return db
 
 loadCommands = (commands) ->
@@ -214,7 +216,10 @@ eventTypes =
   all: ['all', 'any', '*']
 
 parent = module.parent
-if path.dirname module is path.dirname module.parent then parent = parent.parent
+insidePackage = -> 
+  /(\/boter\/lib$)|(\/boter$)/.test path.dirname parent.filename.toLowerCase()
+while insidePackage()
+  parent = parent.parent
 basePath = path.dirname parent.filename
 
 configDefaults =

@@ -45,11 +45,9 @@ describe 'Boter', ->
     it 'should keep a list of aliasses', ->
       bot.aliasses.should.eql ['boterbot', 'boter', 'myboter']
 
-    # Since mocha is run from the base of the Boter project,
-    # that is were we expect module.parent.filename to be.
-    basePath = path.resolve path.dirname(module.filename), '../'
-
-    # e.g. something like /home/users/project/Boter
+    # normally something like /home/users/project/mySuperBot
+    # while testing something like /home/users/project/node-boter/test
+    basePath = path.dirname module.filename
 
     it 'should set a default plugin path relative to the parent module', ->
       bot.config.pluginPath.should.equal path.resolve(basePath, 'plugins')

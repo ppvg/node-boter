@@ -42,7 +42,9 @@ class UserDB extends events.EventEmitter
           @emit 'log', "Can't meet '#{nickname}'; not a registered user."
           callback null, false
         else
+          @emit 'log', "#{nickname} was granted sudo"
           @db.update nickname, hasSudo: true, (err) ->
+            if err? then @emit 'log', "PROBLEM SAVING hasSudo FOR USER #{nickname}"
             callback null, not err?
 
   forget: (nickname, callback) ->
