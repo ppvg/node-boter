@@ -10,9 +10,9 @@ Installation is as simple as:
 
     $ npm install boter
 
-If you want to hack on Boter or check if it works correctly on your system you can clone the repository or copy the files to your path of choice, and then:
+If you want to hack on boter or check if it works correctly on your system you can clone the repository or copy the files to your path of choice, and then:
 
-    $ cd path/to/Boter/
+    $ cd path/to/node-boter/
     $ npm install
 
 You can then run the tests by simple calling:
@@ -23,14 +23,14 @@ You can then run the tests by simple calling:
 Usage
 -----
 
-You can create a _Boter_ bot like your would create a `node_irc` client:
+You can create a _boter_ Bot like your would create a `node_irc` client:
 
-    var Boter = require('../path/to/Boter/');
+    var boter = require('../path/to/node-boter/');
 
     var opts = {
         channels: [#bar]
     };
-    var bot = new Boter('irc.server.foo', 'MyBoter', opts);
+    var bot = new boter.Bot('irc.server.foo', 'MyBoter', opts);
 
 In addition to the nickname, you can give the bot a few aliasses to which it will respond:
 
@@ -38,12 +38,12 @@ In addition to the nickname, you can give the bot a few aliasses to which it wil
         channels: [#bar],
         aliasses: ['BoterBot', 'Boter']
     }
-    var bot = new Boter('irc.server.foo', 'MyBoter', opts);
+    var bot = new boter.Bot('irc.server.foo', 'MyBoter', opts);
 
 
 ### Listening to messages
 
-Now for the fun part: receiving and sending messages. Since version 1.0.0, Boter is plugin-based. It's really easy to write a plugin. For example, here's a simple "Good morning" plugin:
+Now for the fun part: receiving and sending messages. Since version 1.0.0, boter is plugin-based. It's really easy to write a plugin. For example, here's a simple "Good morning" plugin:
 
     goodMorning = function(message) {
       if (/^good morning/.test(message.text))
@@ -71,7 +71,7 @@ Now all you have to do is load the plugin:
 
 Note that the "BoterBot: " prefix is automatically trimmed from the message, and `message.text` is lower cased. The original text (also trimmed, but not decapitalized) can be found in `message.original`.
 
-BoterBot allows you to listen to three kinds of events:
+Boter allows you to listen to three kinds of events:
 
 - `'pm'` event handlers are called when a PM (or "query") is received;
 - `'highlight'` when the Bot is specifically adressed, e.g. "BoterBot: hey, you!";
@@ -201,7 +201,7 @@ Testing
 
 To run the test:
 
-    $ cd path/to/Boter/
+    $ cd path/to/node-boter/
     $ cake test
 
 In addition, you can:
@@ -214,7 +214,7 @@ Alternatively, you can use `npm [command]` instead of `cake [command]` (they're 
 
 **Note:** `jscoverage` is needed to generate a coverage report.
 
-For testing, _Boter_ uses [Mocha][1] and [should.js][2]. In addition, [Mockery][3] and [sinon][4] are used to test in isolation (with a mock of `node_irc`).
+For testing, _boter_ uses [Mocha][1] and [should.js][2]. In addition, [Mockery][3] and [sinon][4] are used to test in isolation (with a mock of `node_irc`).
 
 [1]: http://visionmedia.github.com/mocha/
 [2]: https://github.com/visionmedia/should.js

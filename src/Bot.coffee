@@ -8,8 +8,7 @@ regex = require './regex'
 UserDB = require './UserDB'
 Message = require './Message'
 
-
-class Boter extends events.EventEmitter
+class Bot extends events.EventEmitter
   constructor: (@server, @nickname, @config) ->
     # Handle configuration and defaults:
     @aliasses = loadAliasses.call this
@@ -214,7 +213,9 @@ eventTypes =
   other: ['other', 'public']
   all: ['all', 'any', '*']
 
-basePath = path.dirname module.parent?.filename
+parent = module.parent
+if path.dirname module is path.dirname module.parent then parent = parent.parent
+basePath = path.dirname parent.filename
 
 configDefaults =
   commandPrefix: '!'
@@ -222,4 +223,4 @@ configDefaults =
   dataPath: path.resolve basePath, 'data'
 
 
-module.exports = Boter
+module.exports = Bot

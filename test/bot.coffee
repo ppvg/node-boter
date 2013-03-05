@@ -3,21 +3,21 @@ should = require 'should'
 mocks = require './mocks'
 path = require 'path'
 
-Boter = null
+boter = null
 testManager =
   setup: ->
     mockery.enable()
-    mockery.registerAllowables ['../', './lib/Boter', './Message', './regex', 'path', 'events', 'util']
+    mockery.registerAllowables ['../', './lib/', './Bot', './Message', './regex', 'path', 'events', 'util', 'domain']
     mockery.registerMock 'irc', mocks.irc
     mockery.registerMock 'mkdirp',  mocks.mkdirp
     mockery.registerMock './UserDB',  mocks.UserDB
-    Boter = require '../'
+    boter = require '../'
   tearDown: ->
     mockery.deregisterMock 'irc'
     mockery.deregisterMock 'mkdirp'
     mockery.deregisterMock './UserDB'
     mockery.disable()
-    Boter = null
+    boter = null
   resetMocks: ->
     mocks.irc.Client.reset()
     mocks.mkdirp.sync.reset()
@@ -36,7 +36,7 @@ describe 'Boter', ->
   after      testManager.tearDown
   beforeEach ->
     testManager.resetMocks()
-    bot = new Boter args.server, args.name, args.opts
+    bot = new boter.Bot args.server, args.name, args.opts
 
   describe 'constructor', ->
     it 'should instantiate an irc.Client', ->

@@ -1,6 +1,6 @@
 {
-  "name": "Boter",
-  "version": "1.0.1",
+  "name": "boter",
+  "version": "1.0.2",
   "description": "A simple library for writing smooth IRC bots.",
   "main": "index.js",
   "directories": {
