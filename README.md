@@ -63,13 +63,13 @@ Now all you have to do is load the plugin:
 
 ... and use it!
 
->  <Someone>: BoterBot: Good morning!
->  <MyBoter>: Good morning to you, too, Someone!
->
->  <Person>: good morning, boter.
->  <MyBoter>: Good morning to you, too, Person!
+    <Someone>: BoterBot: Good morning!
+    <MyBoter>: Good morning to you, too, Someone!
+    
+    <Person>: good morning, boter.
+    <MyBoter>: Good morning to you, too, Person!
 
-Note that the `'BoterBot: '` prefix is automatically trimmed from the message, and `message.text` lower cased. The original text (also trimmed, but not decapitalized) can be found in `message.original`.
+Note that the "BoterBot: " prefix is automatically trimmed from the message, and `message.text` is lower cased. The original text (also trimmed, but not decapitalized) can be found in `message.original`.
 
 BoterBot allows you to listen to three kinds of events:
 
@@ -93,14 +93,8 @@ To extend the example from above:
         mention: goodMorning
       },
       commands: {
-        hello: {
-          run: goodMorning,
-          help: "Greet BoterBot"
-        },
-        greet: {
-          run: goodMorning,
-          help: "Greet BoterBot"
-        }
+        hello: goodMorning,
+        greet: goodMorning
       }
     };
 
@@ -108,12 +102,94 @@ To extend the example from above:
 
 And now it listens to commands as well!
 
->  <Someone>: !greet
->  <MyBoter>: Good morning to you, too, Someone!
+    <Someone>: !greet
+    <MyBoter>: Good morning to you, too, Someone!
 
 Easy as `~3.1415`!
 
-Note: the "help" feature is not yet implemented, but will be tied in with the built-in `!help` command when I get around to writing that.
+### The `message` object
+
+All event and command handlers receive a `message` object. You've already seen `message.text` and `message.reply`. It has a few more properties:
+
+#### `message.text`
+
+The text of the message, converted to lower case. If the message highlights the bot (e.g. "BotNick: how are you?"), the bot's nickname is trimmed from the message (e.g. "how are you?").
+
+#### `message.original`
+
+Not converted to lower case, but otherwise the same as `text`.
+
+#### `message.from`
+
+The user that sent the message. This is a `user` object (see below), so to get the user's nickname, use `message.from.nickname`.
+
+#### `message.context`
+
+Where the message was sent to. This is either the name of a channel (e.g. "#ponies") or the name of a user, depending on whether it was a channel message or a PM.
+
+#### `message.reply(replyText)`
+
+Shortcut to `bot.say(message.context, replyText)`, if you have access to the `bot`. This allows you to easily respond to incoming messages.
+
+If the original message was a PM, `reply` sends a PM back to the sender. If it was a channel message, the `reply` goes to the same channel.
+
+
+### User management
+
+Known users are saved to a [tiny](https://github.com/chjj/node-tiny) database. As mentioned before, `message.from` contains a special `user` object. It has the following properties:
+
+#### `user.nickname`
+
+The user's nickname. Case sensitive.
+
+#### `user.isRegistered`
+
+Whether the user has his or her nickname registered with NickServ (and is signed on) the last time the bot checked. The bot checks this when it joins and whenever a user joins or changes nickname.
+
+#### `user.hasSudo`
+
+Whether the user was given sudo rights (using `bot.meet(user, cb)`). Only **registered** users can be given sudo rights.
+
+**Note:** if a user was previously given sudo, but someone else is now using his or her nick, `hasSudo` is still true, even though they may not be the same person! On other words: **always check `isRegistered` as well!**.
+
+#### `user.pm(message)`
+
+Shortcut to send the user a PM.
+
+#### `user.kick(channel, [reason])`
+
+Kick the user from the given `channel` for the given `reason` (optional). Only works if the bot has ops status in that channel (obviously).
+
+
+### Get access to the bot in your plugin
+
+To get access to the bot's methods in your plugin, you could define your plugin in the same file as the bot. But there is a cleaner (and safer) way to get access to some of the bot's features: the `botProxy`.
+
+Instead of returning an `object` as your plugin, return a `function`:
+
+    goodMorningPlugin = function(botProxy) {
+
+      console.log(botProxy)
+      // { meet: [Function], forget: [Function], say: [Function] }
+
+      return {
+        events:   // ...
+        commands: // ...
+      }
+    }
+
+#### `function meet(nickname, callback)`
+
+Set `hasSudo` to `true` for the user with the given `nickname`. The callback signature is `(err, met)`, where `met` is `true` if the user was successfully given `hasSudo`.
+
+#### `function forget(nickname, callback)`
+
+The inverse of `meet`. The callback signature is `(err)`.
+
+#### `function say(context, message)`
+
+Make the bot say something in the given `context` (which can be a channel, like `#ponies`; or a user, in which case it's a PM).
+
 
 ### Plugin management
 

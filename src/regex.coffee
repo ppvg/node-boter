@@ -16,3 +16,7 @@ module.exports =
     (.+?)\b # followed by the command (non-greedy match)
     \s?
   ///i
+  nickServStatus: ///
+    ^(\d) # the status code we're interrested in
+    \s\(.+\)$
+  ///

@@ -1,15 +1,17 @@
 sinon = require 'sinon'
+events = require 'events'
+util = require 'util'
 
 IrcClient = sinon.spy()
 IrcClient.prototype.say = sinon.spy()
 IrcClient.prototype.on  = sinon.spy()
 
-builtins = (bot) ->
-  return plugin =
-    example:
-      help: "Example built-in command"
-      run: (message) ->
+UserDB = sinon.spy()
+util.inherits UserDB, events.EventEmitter
+UserDB.prototype.get = (nickname, callback) ->
+  callback null, {}
 
 module.exports =
-  IrcClient: IrcClient
-  builtins: builtins
+  irc: { Client: IrcClient }
+  mkdirp: { sync: sinon.spy() }
+  UserDB: UserDB

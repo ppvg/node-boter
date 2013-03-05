@@ -8,7 +8,7 @@ mocha_args = [
 ]
 
 task 'build', ->
-  for file in ['Boter', 'Message', 'regex']
+  for file in ['Boter', 'Message', 'UserDB', 'regex']
     compile "src/#{file}.coffee", "lib/#{file}.js"
 
 task 'watch-src', ->

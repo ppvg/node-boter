@@ -8,7 +8,9 @@
     "lib": "lib"
   },
   "dependencies": {
-    "irc": "~0.3.6"
+    "irc": "~0.3.6",
+    "tiny": "0.0.8",
+    "mkdirp": "~0.3.5"
   },
   "devDependencies": {
     "coffee-script": "~1.5.0",
