@@ -2,6 +2,7 @@ irc = require 'irc'
 path = require 'path'
 mkdirp = require 'mkdirp'
 events = require 'events'
+domain = require 'domain'
 
 regex = require './regex'
 UserDB = require './UserDB'
@@ -18,10 +19,7 @@ class Boter extends events.EventEmitter
     @nickServQueue = []
 
     # Open user DB:
-    mkdirp.sync @config.dataPath
-    @users = new UserDB path.resolve @config.dataPath, 'users.tiny'
-    @users.once 'error', (err) =>
-      @emit 'error', new Error "Failed to open user database."
+    @users = openUserDB.call this
     @users.once 'load', =>
       @emit 'load'
 
@@ -41,7 +39,10 @@ class Boter extends events.EventEmitter
       @users.meet user.nickname, callback
     else
       @_queueNickServCheck user, (isRegistered) =>
-        @users.meet user, callback if isRegistered
+        if isRegistered
+          @users.meet user, callback
+        else
+          callback null, false
 
   forget: (user, callback) =>
     if not typeof user is 'string'
@@ -57,9 +58,10 @@ class Boter extends events.EventEmitter
   load: (name, plugin) ->
     if typeof plugin is 'function'
       botProxy = {}
-      botProxy[f] = this[f] for f in ['meet', 'forget', 'say']
+      botProxy[f] = @[f] for f in ['meet', 'forget', 'say']
+      botProxy.config = {}
+      botProxy.config[key] = val for key, val of @config when typeof val is 'string'
       plugin = plugin botProxy
-      console.log botProxy
 
     if name of @plugins then throw new Error "Plugin already loaded!"
 
@@ -71,9 +73,13 @@ class Boter extends events.EventEmitter
     message.text.indexOf(@config.commandPrefix) is 0
 
   runCommand: (command, message) ->
-    cmd = @commands[command]
-    if typeof cmd is 'function' then cmd message
-    else if cmd?.run? then cmd.run message
+    d = domain.create()
+    d.on 'error', (err) =>
+      @emit 'error', "[runCommand] " + err.toString()
+    d.run =>
+      cmd = @commands[command]
+      if typeof cmd is 'function' then cmd message
+      else if cmd?.run? then cmd.run message
 
   isHighlightedIn: (message) ->
     match = message.text.match regex.highlight
@@ -87,7 +93,7 @@ class Boter extends events.EventEmitter
 
   _onPM: (from, text) =>
     @_getUser from, (err, user) =>
-      if err? then console.error "Error handling PM: can't get user #{from}."
+      if err? then @emit 'error', new Error "Unhandled PM, can't get user #{from}."
       else
         message = new Message user, from, text
         message.reply = (reply) => @client.say from, reply
@@ -99,7 +105,7 @@ class Boter extends events.EventEmitter
 
   _onMessage: (from, to, text) =>
     @_getUser from, (err, user) =>
-      if err? then console.error "Error handling message: can't get user #{from}."
+      if err? then @emit 'error', new Error "Unhandled message, can't get user #{from}."
       else
         message = new Message user, to, text
         message.reply = (reply) => @client.say to, reply
@@ -129,9 +135,13 @@ class Boter extends events.EventEmitter
     @runCommand command, message
 
   _handleEvent: (eventType, message) ->
-    for name, plugin of @plugins
-      if plugin.events? and plugin.events.hasOwnProperty eventType
-        plugin.events[eventType] message
+    d = domain.create()
+    d.on 'error', (err) =>
+      @emit 'error', "[_handleEvent] " + err.toString()
+    d.run =>
+      for name, plugin of @plugins
+        if plugin.events? and plugin.events.hasOwnProperty eventType
+          plugin.events[eventType] message
 
   _queueNickServCheck: (nick, callback) =>
     @nickServQueue.push {nick, callback} unless nick is @nickname
@@ -176,14 +186,22 @@ loadAliasses = ->
 
 initializeIrcClient = ->
   client = new irc.Client @server, @nickname, @config
-  client.on 'error', (error) ->
-    console.error error
+  client.on 'error', (ircErr) =>
+    err = new Error "IRC client error:" + ircError.toString()
+    @emit 'error', err
   return client
+
+openUserDB = ->
+  mkdirp.sync @config.dataPath
+  db = new UserDB path.resolve @config.dataPath, 'users.tiny'
+  db.once 'error', (err) =>
+    @emit 'error', new Error "Failed to open user database."
+  return db
 
 loadCommands = (commands) ->
   for name, command of commands
     if name of @commands
-      console.error "Command '#{name}' already used by another plugin."
+      @emit 'error', new Error "Command '#{name}' already used by another plugin."
     else
       @commands[name] = command
 

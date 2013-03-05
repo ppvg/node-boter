@@ -12,7 +12,7 @@ class UserDB extends events.EventEmitter
         @emit 'load'
 
   get: (nickname, callback) ->
-    log "Getting user '#{nickname}'"
+    @emit 'log', "Getting user '#{nickname}'"
     if not @db? then error callback
     else
       @db.get nickname, (err, user) ->
@@ -20,7 +20,7 @@ class UserDB extends events.EventEmitter
         callback null, user
 
   markRegistered: (nickname, callback) ->
-    log "Marking '#{nickname}' as registered"
+    @emit 'log', "Marking '#{nickname}' as registered"
     if not @db? then error callback
     else
       @db.get nickname, (err, user) =>
@@ -34,18 +34,19 @@ class UserDB extends events.EventEmitter
             callback null, not err?
 
   meet: (nickname, callback) ->
-    log "Meeting '#{nickname}'"
+    @emit 'log', "Meeting '#{nickname}'"
     if not @db? then error callback
     else
       @db.get nickname, (err, data) =>
         if err? or not data?.isRegistered
-          log "Can't meet '#{nickname}'; not a registered user."
+          @emit 'log', "Can't meet '#{nickname}'; not a registered user."
           callback null, false
         else
           @db.update nickname, hasSudo: true, (err) ->
             callback null, not err?
 
   forget: (nickname, callback) ->
+    @emit 'log', "Forgetting '#{nickname}'"
     @db.remove nickname, (err) ->
       callback err if typeof callback is 'function'
 
@@ -53,9 +54,6 @@ defaults = ->
   return userDefaults =
     isRegistered: false
     hasSudo: false
-
-log = (args...) ->
-  console.log "[UserDB]", args...
 
 error = (callback) ->
   callback new Error "User database not available."
