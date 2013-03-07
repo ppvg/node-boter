@@ -12,5 +12,8 @@ class Message
     @text = @text.replace regex.command, ''
     @original = @original.replace regex.command, ''
     return command
+  trim: () -> # whitespace from beginning and end
+    @text = @text.replace(/^\s*/, '').replace(/\s*$/, '')
+    @original = @original.replace(/^\s*/, '').replace(/\s*$/, '')
 
 module.exports = Message

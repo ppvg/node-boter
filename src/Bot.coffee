@@ -28,6 +28,12 @@ class Bot extends events.EventEmitter
     @client.on 'message#', @_onMessage
     @client.on 'notice', @_onNotice
     @client.on 'names', @_onNames
+    @client.on 'join', @_onJoin
+
+    # Request /names every 2 minutes (to update NickServ status)
+    requestNames = =>
+      @client.send 'NAMES', channel for channel in @config?.channels
+    setInterval requestNames, 1000*60*2
 
   # Plugin-accessable "public methods":
 
@@ -129,6 +135,9 @@ class Bot extends events.EventEmitter
     for nick, rank of nicks
       @_queueNickServCheck nick
 
+  _onJoin: (channel, nick, message) =>
+    @_queueNickServCheck nick
+
   _handleCommand: (message) ->
     command = message.trimCommand()
     @runCommand command, message
@@ -171,6 +180,11 @@ class Bot extends events.EventEmitter
           @client.say user.nickname, message
         user.kick = (channel, reason) =>
           @client.send 'KICK', channel, nickname, reason ? ''
+        user.is = (role) =>
+          if role is 'super' or role is 'privileged'
+            user.isRegistered and user.hasSudo
+          else if role is 'admin'
+            user.isRegistered and user.isAdmin
         callback null, user
 
 
@@ -186,7 +200,7 @@ loadAliasses = ->
 initializeIrcClient = ->
   client = new irc.Client @server, @nickname, @config
   client.on 'error', (ircErr) =>
-    err = new Error "IRC client error:" + ircError.toString()
+    err = new Error "IRC client error:" + ircErr.toString()
     @emit 'error', err
   return client
 
@@ -226,6 +240,7 @@ configDefaults =
   commandPrefix: '!'
   pluginPath: path.resolve basePath, 'plugins'
   dataPath: path.resolve basePath, 'data'
+  channels: []
 
 
 module.exports = Bot
