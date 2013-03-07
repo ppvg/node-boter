@@ -58,12 +58,15 @@ class Bot extends events.EventEmitter
   say: (context, message) =>
     @client.say context, message
 
+  action: (context, message) =>
+    @client.action context, message
+
   # Regular "public methods":
 
   load: (name, plugin) ->
     if typeof plugin is 'function'
       botProxy = {}
-      botProxy[f] = @[f] for f in ['meet', 'forget', 'say']
+      botProxy[f] = @[f] for f in ['meet', 'forget', 'say', 'action']
       botProxy.config = {}
       botProxy.config[key] = val for key, val of @config when typeof val is 'string'
       plugin = plugin botProxy
@@ -80,7 +83,7 @@ class Bot extends events.EventEmitter
   runCommand: (command, message) ->
     d = domain.create()
     d.on 'error', (err) =>
-      @emit 'error', "[runCommand] " + err.toString()
+      @emit 'error', "[#{@config.commandPrefix}#{command}] " + err.toString()
     d.run =>
       cmd = @commands[command]
       if typeof cmd is 'function' then cmd message
@@ -143,11 +146,13 @@ class Bot extends events.EventEmitter
     @runCommand command, message
 
   _handleEvent: (eventType, message) ->
+    currentPlugin = null
     d = domain.create()
     d.on 'error', (err) =>
-      @emit 'error', "[_handleEvent] " + err.toString()
+      @emit 'error', "[#{currentPlugin}:#{eventType}] " + err.toString()
     d.run =>
       for name, plugin of @plugins
+        currentPlugin = name
         if plugin.events? and plugin.events.hasOwnProperty eventType
           plugin.events[eventType] message
 
