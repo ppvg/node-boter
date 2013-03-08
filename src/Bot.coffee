@@ -9,51 +9,26 @@ UserDB = require './UserDB'
 Message = require './Message'
 
 class Bot extends events.EventEmitter
-  constructor: (@server, @nickname, @config) ->
+  constructor: (@server, @nickname, config) ->
     # Handle configuration and defaults:
-    @aliasses = loadAliasses.call this
-    @config[key] = val for key, val of configDefaults when not @config[key]?
+    @aliasses = aliasses @nickname, config.aliasses
+    @config = {}
+    for option in knownOpts
+      @config[option] = config[option] ? (configDefaults[option] ? undefined)
     @plugins = {}
     @commands = {}
     @nickServQueue = []
 
     # Open user DB:
     @users = openUserDB.call this
-    @users.once 'load', =>
-      @emit 'load'
+    @users.once 'load', => @emit 'load'
 
     # Start IRC client:
-    @client = initializeIrcClient.call this
-    @client.on 'pm', @_onPM
-    @client.on 'message#', @_onMessage
-    @client.on 'notice', @_onNotice
-    @client.on 'names', @_onNames
-    @client.on 'join', @_onJoin
+    @client = initializeIrcClient @
+    attachEventHandlers @client, @
 
-    # Request /names every 2 minutes (to update NickServ status)
-    requestNames = =>
-      @client.send 'NAMES', channel for channel in @config?.channels
-    setInterval requestNames, 1000*60*2
 
-  # Plugin-accessable "public methods":
-
-  meet: (user, callback) =>
-    callback = callback ? ( (err, met) -> )
-
-    if typeof user isnt 'string' and user.isRegistered
-      @users.meet user.nickname, callback
-    else
-      @_queueNickServCheck user, (isRegistered) =>
-        if isRegistered
-          @users.meet user, callback
-        else
-          callback null, false
-
-  forget: (user, callback) =>
-    if not typeof user is 'string'
-      user = user?.nickname
-    callback = callback ? ( (err) -> )
-    @users.forget user, callback
+  ### Plugin-accessable "public methods": ###
 
   say: (context, message) =>
     @client.say context, message
@@ -61,21 +36,42 @@ class Bot extends events.EventEmitter
   action: (context, message) =>
     @client.action context, message
 
-  # Regular "public methods":
+  checkNickServ: (nickname, callback) =>
+    @_queueNickServCheck nickname, callback
+
+  getUser: (nickname, callback) ->
+    @users.get nickname, (err, user) =>
+      if err?
+        callback err
+      else
+        user.pm = (message) =>
+          @client.say user.nickname, message
+        user.kick = (channel, reason) =>
+          @client.send 'KICK', channel, nickname, reason ? ''
+        user.setIsAdmin = (isAdmin, callback) =>
+          @db.setIsAdmin user.nickname, isAdmin, callback
+        callback null, user
+
+  ### Regular "public methods": ###
+
+  createProxy: ->
+    botProxy = {}
+    for f in ['say', 'action', 'checkNickServ', 'getUser']
+      botProxy[f] = @[f]
+    botProxy.config = {}
+    botProxy.config[key] = val for key, val of @config when typeof val is 'string'
+    return botProxy
 
   load: (name, plugin) ->
     if typeof plugin is 'function'
-      botProxy = {}
-      botProxy[f] = @[f] for f in ['meet', 'forget', 'say', 'action']
-      botProxy.config = {}
-      botProxy.config[key] = val for key, val of @config when typeof val is 'string'
-      plugin = plugin botProxy
+      plugin = plugin @createProxy()
 
-    if name of @plugins then throw new Error "Plugin already loaded!"
+    if name of @plugins then throw new Error "Plugin '#{name}' already loaded!"
 
     @plugins[name] = plugin
     if plugin.commands?
       loadCommands.call this, plugin.commands
+    return
 
   isCommand: (message) ->
     message.text.indexOf(@config.commandPrefix) is 0
@@ -97,10 +93,10 @@ class Bot extends events.EventEmitter
     containsAlias = (alias) -> message.text.indexOf(alias) > -1
     @aliasses.some containsAlias
 
-  # Faux "private" methods:
+  ### Faux "private" methods: ###
 
   _onPM: (from, text) =>
-    @_getUser from, (err, user) =>
+    @getUser from, (err, user) =>
       if err? then @emit 'error', new Error "Unhandled PM, can't get user #{from}."
       else
         message = new Message user, from, text
@@ -112,7 +108,7 @@ class Bot extends events.EventEmitter
           @_handleEvent 'pm', message
 
   _onMessage: (from, to, text) =>
-    @_getUser from, (err, user) =>
+    @getUser from, (err, user) =>
       if err? then @emit 'error', new Error "Unhandled message, can't get user #{from}."
       else
         message = new Message user, to, text
@@ -136,10 +132,18 @@ class Bot extends events.EventEmitter
 
   _onNames: (channel, nicks) =>
     for nick, rank of nicks
-      @_queueNickServCheck nick
+      @users.setChanOp channel, nick, rank is '@'
+
+  _onModeSet: (channel, setBy, mode, argument, message) =>
+    if mode is '@'
+      @users.setChanOp channel, argument, true
+
+  _onModeRemove: (channel, setBy, mode, argument, message) =>
+    if mode is '@'
+      @users.setChanOp channel, argument, false
 
   _onJoin: (channel, nick, message) =>
-    @_queueNickServCheck nick
+    # TODO mark online?
 
   _handleCommand: (message) ->
     command = message.trimCommand()
@@ -167,53 +171,54 @@ class Bot extends events.EventEmitter
       user = @nickServQueue.shift()
       callback = if typeof user.callback is 'function' then user.callback else ->
       if parseInt(match[1], 10) >= 2 
-        @users.markRegistered user.nick, (err, marked) ->
-          callback not err? and marked
+        @users.setIsRegistered user.nick, true, (err, isRegistered) ->
+          callback not err? and isRegistered
       else
         callback false
     if @nickServQueue.length > 0
       @client.say 'NickServ', "STATUS #{@nickServQueue[0].nick}"
 
-  _getUser: (nickname, callback) ->
-    @users.get nickname, (err, user) =>
-      # if err? then callback err
-      if err?
-        callback err
-      else
-        user.nickname = nickname
-        user.pm = (message) =>
-          @client.say user.nickname, message
-        user.kick = (channel, reason) =>
-          @client.send 'KICK', channel, nickname, reason ? ''
-        user.is = (role) =>
-          if role is 'super' or role is 'privileged'
-            user.isRegistered and user.hasSudo
-          else if role is 'admin'
-            user.isRegistered and user.isAdmin
-        callback null, user
 
 
-# Real "private methods":
+### Real "private methods": ###
 
-loadAliasses = ->
-  aliasses = [@nickname.toLowerCase()]
-  if @config?.aliasses?.length
-    for alias in @config.aliasses
-      aliasses.push alias.toLowerCase()
-  aliasses
+aliasses = (nickname, aliasses)->
+  result = [nickname.toLowerCase()]
+  if aliasses?.length
+    for alias in aliasses
+      result.push alias.toLowerCase()
+  return result
 
-initializeIrcClient = ->
-  client = new irc.Client @server, @nickname, @config
+initializeIrcClient = (bot) ->
+  client = new irc.Client bot.server, bot.nickname, copyIrcOpts(bot.config)
   client.on 'error', (ircErr) =>
-    err = new Error "IRC client error:" + ircErr.toString()
-    @emit 'error', err
+    err = new Error "[Client] " + ircErr.toString()
+    bot.emit 'error', err
   return client
+
+attachEventHandlers = (client, bot) ->
+  client.on 'pm', bot._onPM
+  client.on 'message#', bot._onMessage
+  client.on 'notice', bot._onNotice
+  client.on 'names', bot._onNames
+  client.on '+mode', bot._onModeSet
+  client.on '-mode', bot._onModeRemove
+  client.on 'join', bot._onJoin
+  # TODO
+  # client.on 'part', bot._onPart # check NickServ status
+  # client.on 'nick', bot._onNick # check NickServ status
+
+copyIrcOpts = (config) ->
+  return parsed =
+    userName: config.userName, port: config.port,
+    realName: config.realName, channels: config.channels
 
 openUserDB = ->
   mkdirp.sync @config.dataPath
-  db = new UserDB path.resolve @config.dataPath, 'users.tiny'
+  filename = path.resolve @config.dataPath, 'users.tiny'
+  db = new UserDB filename, @createProxy()
   db.once 'error', (err) =>
-    @emit 'error', new Error "Failed to open user database."
+    @emit 'error', new Error "[UserDB] Failed to open database."
   db.on 'log', (message) =>
     @emit 'log', '[UserDB] ' + message
   return db
@@ -225,16 +230,9 @@ loadCommands = (commands) ->
     else
       @commands[name] = command
 
-# "Private properties":
+### "Private properties": ###
 
-eventTypes =
-  pm: ['pm', 'private', 'query']
-  highlight: ['highlight', 'hilight']
-  mention: ['mention']
-  other: ['other', 'public']
-  all: ['all', 'any', '*']
-
-parent = module.parent
+parent = module
 insidePackage = -> 
   /(\/boter\/lib$)|(\/boter$)/.test path.dirname parent.filename.toLowerCase()
 while insidePackage()
@@ -245,7 +243,17 @@ configDefaults =
   commandPrefix: '!'
   pluginPath: path.resolve basePath, 'plugins'
   dataPath: path.resolve basePath, 'data'
-  channels: []
 
+knownOpts = [
+  'userName', 'realName', 'port', 'channels' # IRC-related
+  'commandPrefix', 'pluginPath', 'dataPath'  # Boter-related
+]
+
+eventTypes =
+  pm: ['pm', 'private', 'query']
+  highlight: ['highlight', 'hilight']
+  mention: ['mention']
+  other: ['other', 'public']
+  all: ['all', 'any', '*']
 
 module.exports = Bot

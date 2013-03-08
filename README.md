@@ -25,7 +25,7 @@ Usage
 
 You can create a _boter_ Bot like your would create a `node_irc` client:
 
-    var boter = require('../path/to/node-boter/');
+    var boter = require('boter');
 
     var opts = {
         channels: [#bar]
@@ -61,11 +61,11 @@ Now all you have to do is load the plugin:
 
     bot.load(goodMorningPlugin);
 
-... and use it!
+...and use it!
 
     <Someone>: BoterBot: Good morning!
     <MyBoter>: Good morning to you, too, Someone!
-    
+
     <Person>: good morning, boter.
     <MyBoter>: Good morning to you, too, Person!
 
@@ -133,8 +133,12 @@ Shortcut to `bot.say(message.context, replyText)`, if you have access to the `bo
 
 If the original message was a PM, `reply` sends a PM back to the sender. If it was a channel message, the `reply` goes to the same channel.
 
+#### `message.trim()`
 
-### User management
+Removed any whitespace from the beginnen and end of `message.text` and `message.original`.
+
+
+### User management <a id="user_management"></a>
 
 Known users are saved to a [tiny](https://github.com/chjj/node-tiny) database. As mentioned before, `message.from` contains a special `user` object. It has the following properties:
 
@@ -142,15 +146,20 @@ Known users are saved to a [tiny](https://github.com/chjj/node-tiny) database. A
 
 The user's nickname. Case sensitive.
 
-#### `user.isRegistered`
+#### `user.is(role)`
 
-Whether the user has his or her nickname registered with NickServ (and is signed on) the last time the bot checked. The bot checks this when it joins and whenever a user joins or changes nickname.
+This function can be used to check user rights. It can check whether the user is registered with NickServ, whether the user is an `admin`, and whether the user has `channelOp` status in a given channel.
 
-#### `user.hasSudo`
+    // the chanOp check return the result immediately:
+    isChanOp = user.is('op', '#pwnies');
 
-Whether the user was given sudo rights (using `bot.meet(user, cb)`). Only **registered** users can be given sudo rights.
-
-**Note:** if a user was previously given sudo, but someone else is now using his or her nick, `hasSudo` is still true, even though they may not be the same person! On other words: **always check `isRegistered` as well!**.
+    // the other two use callbacks:
+    user.is('registered', function(isRegistered){
+      console.log("Registered:", isRegistered);
+    });
+    user.is('admin', function(isAdmin){
+      console.log("Admin:", isAdmin);
+    });
 
 #### `user.pm(message)`
 
@@ -159,6 +168,18 @@ Shortcut to send the user a PM.
 #### `user.kick(channel, [reason])`
 
 Kick the user from the given `channel` for the given `reason` (optional). Only works if the bot has ops status in that channel (obviously).
+
+#### `user.setIsAdmin(isAdmin, callback)`
+
+Sets whether the user is an admin.
+
+    user.setIsAdmin(true, function(success) {
+      if (success) {
+        console.log("User", user.username, "successfully made admin.");
+      }
+    });
+
+**Note:** a user can be made admin while he or she is not registered with NickServ, but `user.is('admin')` will only report `true` while the user is registered.
 
 
 ### Get access to the bot in your plugin
@@ -170,7 +191,7 @@ Instead of returning an `object` as your plugin, return a `function`:
     goodMorningPlugin = function(botProxy) {
 
       console.log(botProxy)
-      // { meet: [Function], forget: [Function], say: [Function] }
+      // { say: [Function], action: [Function], checkNickServ: [Function], getUser: [Function] }
 
       return {
         events:   // ...
@@ -178,17 +199,34 @@ Instead of returning an `object` as your plugin, return a `function`:
       }
     }
 
-#### `function meet(nickname, callback)`
-
-Set `hasSudo` to `true` for the user with the given `nickname`. The callback signature is `(err, met)`, where `met` is `true` if the user was successfully given `hasSudo`.
-
-#### `function forget(nickname, callback)`
-
-The inverse of `meet`. The callback signature is `(err)`.
-
-#### `function say(context, message)`
+#### `bot.say(context, message)`
 
 Make the bot say something in the given `context` (which can be a channel, like `#ponies`; or a user, in which case it's a PM).
+
+#### `bot.action(context, message)`
+
+Make the bot do an `action` in the given `context` (which can be a channel, like `#ponies`; or a user, in which case it's a PM).
+
+_Actions are what happens when you use `/me does something` in your IRC client._
+
+#### `bot.checkNickServ(nickname, callback)`
+
+Trigger a NickServ status check. The user DB will be updated. The callback is optional, but if given, it will report back whether the user is registered with NickServ.
+
+    bot.checkNickServ('someUser', function(isRegistered) {
+      console.log("User is registered:", isRegistered);
+    });
+
+#### `bot.getUser(nickname, callback)`
+
+Get a `user` object for the user with the given `nickname`. For a description of this object, see [User management](#user_management).
+
+    bot.getUser('someUser', function(err, user) {
+      if (err) console.warn err
+      else {
+        user.kick('#pwnies', "Muhuhahahaha");
+      }
+    });
 
 
 ### Plugin management
