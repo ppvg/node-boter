@@ -34,5 +34,9 @@
     "coffee-script"
   ],
   "author": "Peter-Paul van Gemerden <info@ppvg.nl>",
-  "license": "BSD"
+  "license": "BSD",
+  "repository": {
+    "type" : "git",
+    "url" : "git://github.com/PPvG/node-boter.git"
+  }
 }
