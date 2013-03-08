@@ -135,11 +135,11 @@ class Bot extends events.EventEmitter
       @users.setChanOp channel, nick, rank is '@'
 
   _onModeSet: (channel, setBy, mode, argument, message) =>
-    if mode is '@'
+    if mode is 'o'
       @users.setChanOp channel, argument, true
 
   _onModeRemove: (channel, setBy, mode, argument, message) =>
-    if mode is '@'
+    if mode is 'o'
       @users.setChanOp channel, argument, false
 
   _onJoin: (channel, nick, message) =>
