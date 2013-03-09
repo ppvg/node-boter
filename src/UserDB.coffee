@@ -28,11 +28,12 @@ class UserDB extends events.EventEmitter
       else
         @db = db
         db.compact =>
-          process.nextTick => @emit 'load'
-          db.each ((doc) ->
-              if doc.isRegistered or not doc.chanOp? or doc.chanOp.length > 0
-                db.update doc.nickname, isRegistered:false, chanOp:[], (err) ->
-            ), -> # done
+          each = (doc) ->
+            if doc.isRegistered or not doc.chanOp? or doc.chanOp.length > 0
+              db.update doc.nickname, isRegistered:false, chanOp:[], (err) ->
+          done = =>
+            process.nextTick => @emit 'load', 'cookies'
+          db.each each, done
 
   get: (nickname, callback) ->
     @emit 'debug', "Getting user '#{nickname}'"
@@ -41,8 +42,10 @@ class UserDB extends events.EventEmitter
       bot = @bot
       user.is = (role, arg) ->
         if role is 'op'
-          if typeof arg isnt 'string' then throw new Error 'No channel specified.'
-          else return @chanOp? and arg in @chanOp
+          if typeof arg isnt 'string'
+            throw new Error 'No channel specified.'
+          else
+            return @chanOp? and arg in @chanOp
         if role is 'registered'
           callback = if typeof arg is 'function' then arg else ->
           if user.isRegistered then callback true

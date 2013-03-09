@@ -15,9 +15,10 @@
   "devDependencies": {
     "coffee-script": "~1.5.0",
     "mocha": "~1.8.1",
-    "mockery": "~1.4.0",
-    "should": "~1.2.2",
     "sinon": "~1.6.0",
+    "chai": "~1.5.0",
+    "sinon-chai": "~2.3.1",
+    "sandboxed-module": "~0.2.0",
     "flour": "~0.4.11"
   },
   "scripts": {
@@ -36,7 +37,7 @@
   "author": "Peter-Paul van Gemerden <info@ppvg.nl>",
   "license": "BSD",
   "repository": {
-    "type" : "git",
-    "url" : "git://github.com/PPvG/node-boter.git"
+    "type": "git",
+    "url": "git://github.com/PPvG/node-boter.git"
   }
 }

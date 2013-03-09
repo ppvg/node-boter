@@ -233,9 +233,9 @@ loadCommands = (commands) ->
 ### "Private properties": ###
 
 parent = module
-insidePackage = -> 
-  /(\/boter\/lib$)|(\/boter$)/.test path.dirname parent.filename.toLowerCase()
-while insidePackage()
+insidePackage = ->
+  if parent? then /(\/boter(\/(lib(-cov)?|test))?$)/i.test path.dirname parent.filename.toLowerCase() else false
+while insidePackage() and parent.parent?.filename?
   parent = parent.parent
 basePath = path.dirname parent.filename
 
