@@ -1,12 +1,14 @@
 # NB: Some modules are included via test/common.js
 path = require 'path'
 
-boter = Bot:
-  sandbox.require libPath + 'Bot',
-    requires:
+boter = null
+loadBoter = ->
+  boter =
+    Bot: (sandbox.require libPath + 'Bot', requires:
       irc: mocks.irc
       mkdirp: mocks.mkdirp
       './UserDB': mocks.UserDB
+    )
 
 resetMocks = ->
   mocks.irc.Client.reset()
@@ -19,6 +21,7 @@ describe 'Bot', ->
   bot = {}
   args = null # these are set in beforeEach, so they're reset before each test
 
+  before -> loadBoter()
   beforeEach ->
     resetMocks()
     args =
