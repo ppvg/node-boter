@@ -1,9 +1,9 @@
-.git
-.gitignore
-.gitmodules
+.git*
 .*.swp
 coverage.html
+Cakefile
 lib-cov/
 src/
 test/
+data/
 node_modules/
