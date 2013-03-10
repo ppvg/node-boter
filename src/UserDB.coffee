@@ -99,19 +99,6 @@ class UserDB extends events.EventEmitter
     if not @db? then callback new Error 'User database not available.'
     else @db.get nickname, callback, shallow
 
-  _handleNickServ: (text) ->
-    match = text.match regex.nickServStatus
-    if match? and @nickServQueue.length > 0
-      user = @nickServQueue.shift()
-      callback = if typeof user.callback is 'function' then user.callback else ->
-      if parseInt(match[1], 10) >= 2 
-        @users.markRegistered user.nick, (err, marked) ->
-          callback not err? and marked
-      else
-        callback false
-    if @nickServQueue.length > 0
-      @client.say 'NickServ', "STATUS #{@nickServQueue[0].nick}"
-
 createDefaultUser = ->
   return userDefaults =
     isRegistered: false
