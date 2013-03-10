@@ -49,7 +49,7 @@ class Bot extends events.EventEmitter
         user.kick = (channel, reason) =>
           @client.send 'KICK', channel, nickname, reason ? ''
         user.setIsAdmin = (isAdmin, callback) =>
-          @db.setIsAdmin user.nickname, isAdmin, callback
+          @users.setIsAdmin user.nickname, isAdmin, callback
         callback null, user
 
   ### Regular "public methods": ###
@@ -171,8 +171,9 @@ class Bot extends events.EventEmitter
       user = @nickServQueue.shift()
       callback = if typeof user.callback is 'function' then user.callback else ->
       if parseInt(match[1], 10) >= 2 
-        @users.setIsRegistered user.nick, true, (err, isRegistered) ->
-          callback not err? and isRegistered
+        @users.setIsRegistered user.nick, true, (err) ->
+          if err? then callback new Error "Unable to mark user '#{user.nick}' as registered."
+          else callback true
       else
         callback false
     if @nickServQueue.length > 0

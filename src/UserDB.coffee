@@ -11,12 +11,14 @@ createUpdatePropertyFunc = (property) ->
         user.nickname = nickname
         user[property] = value
         @db.set nickname, user, (err) ->
-          callback null, not err?
+          if err? then callback new Error "Can't create user '#{nickname}' with #{property} set to #{value}."
+          else callback null
       else
         update = {}
         update[property] = value
         @db.update nickname, update, (err) ->
-          callback null, not err?
+          if err? then callback new Error "Can't set #{property} to #{value} for user '#{nickname}'."
+          else callback null
 
 
 class UserDB extends events.EventEmitter
@@ -41,22 +43,20 @@ class UserDB extends events.EventEmitter
       if err? then user = createDefaultUser()
       bot = @bot
       user.is = (role, arg) ->
+        cb = if typeof arg is 'function' then arg else ->
         if role is 'op'
           if typeof arg isnt 'string'
             throw new Error 'No channel specified.'
-          else
-            return @chanOp? and arg in @chanOp
+          return @chanOp? and arg in @chanOp
         if role is 'registered'
-          callback = if typeof arg is 'function' then arg else ->
-          if user.isRegistered then callback true
-          else bot.checkNickServ nickname, callback
+          if @isRegistered then cb true
+          else bot.checkNickServ nickname, cb
         if role is 'admin'
-          if typeof arg is 'function'
-            if user.isAdmin
-              user.is 'registered', (isRegistered) ->
-                arg isRegistered and user.isAdmin
-            else
-              arg false
+          if @isAdmin
+            @is 'registered', (isRegistered) =>
+              cb isRegistered and @isAdmin
+          else cb false
+
       callback null, user
 
   forget: (nickname, callback) ->
