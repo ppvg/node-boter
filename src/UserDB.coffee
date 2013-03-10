@@ -52,8 +52,11 @@ class UserDB extends events.EventEmitter
           else bot.checkNickServ nickname, callback
         if role is 'admin'
           if typeof arg is 'function'
-            user.is 'registered', (isRegistered) ->
-              arg isRegistered and user.isAdmin
+            if user.isAdmin
+              user.is 'registered', (isRegistered) ->
+                arg isRegistered and user.isAdmin
+            else
+              arg false
       callback null, user
 
   forget: (nickname, callback) ->
@@ -102,6 +105,7 @@ class UserDB extends events.EventEmitter
 createDefaultUser = ->
   return userDefaults =
     isRegistered: false
+    isAdmin: false
     chanOp: []
 
 module.exports = UserDB

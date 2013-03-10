@@ -172,17 +172,7 @@ describe 'UserDB', ->
                   expect(isAdmin).to.be.true
                   done()
 
-          describe 'when user.isRegistered but not user.isAdmin', ->
-            it "should call the callback with result 'false'", (done) ->
-              db = new boter.UserDB 'filename'
-              mocks.tinySpy.get = (nickname, callback) ->
-                callback null, isRegistered: true, isAdmin: false
-              db.get 'user', (err, user) ->
-                user.is 'admin', (isAdmin) ->
-                  expect(isAdmin).to.be.false
-                  done()
-
-          describe 'when not user.isRegistered', ->
+          describe 'when user.isAdmin but not user.isRegistered', ->
             it 'should check NickServ', (done) ->
               nickServChecked = false
               bot = checkNickServ: (nickname, callback) ->
@@ -195,6 +185,21 @@ describe 'UserDB', ->
                 user.is 'admin', (isAdmin) ->
                   expect(nickServChecked).to.be.true
                   expect(isAdmin).to.be.true
+                  done()
+
+          describe 'when not user.isAdmin', ->
+            it "should not check NickServ", (done) ->
+              checkNickServCalled = false
+              bot = checkNickServ: (nickname, callback) ->
+                checkNickServCalled = true
+                callback false
+              db = new boter.UserDB 'filename', bot
+              mocks.tinySpy.get = (nickname, callback) ->
+                callback null, {isRegistered: false, isAdmin: false}
+              db.get 'user', (err, user) ->
+                user.is 'admin', (isAdmin) ->
+                  expect(isAdmin).to.be.false
+                  expect(checkNickServCalled).to.be.false
                   done()
 
     describe '#forget', ->
