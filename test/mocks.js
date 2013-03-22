@@ -3,8 +3,8 @@ var sinon = require('sinon');
 var util = require('util');
 
 var IrcClient = sinon.spy();
-IrcClient.prototype.say = sinon.spy();
-IrcClient.prototype.on = sinon.spy();
+IrcClient.prototype.say = function() { }
+IrcClient.prototype.on = function() { }
 
 var UserDB = sinon.spy();
 util.inherits(UserDB, events.EventEmitter);

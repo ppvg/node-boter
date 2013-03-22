@@ -2,25 +2,6 @@ tiny = require 'tiny'
 events = require 'events'
 regex = require './regex'
 
-createUpdatePropertyFunc = (property) ->
-  return (nickname, value, callback) ->
-    @emit 'debug', "Setting #{property} for '#{nickname}' to #{value}."
-    @_getOrDie nickname, (err, user) =>
-      if err?
-        user = createDefaultUser()
-        user.nickname = nickname
-        user[property] = value
-        @db.set nickname, user, (err) ->
-          if err? then callback new Error "Can't create user '#{nickname}' with #{property} set to #{value}."
-          else callback null
-      else
-        update = {}
-        update[property] = value
-        @db.update nickname, update, (err) ->
-          if err? then callback new Error "Can't set #{property} to #{value} for user '#{nickname}'."
-          else callback null
-
-
 class UserDB extends events.EventEmitter
   constructor: (filename, @bot) ->
     @db = null
@@ -44,18 +25,19 @@ class UserDB extends events.EventEmitter
       bot = @bot
       user.is = (role, arg) ->
         cb = if typeof arg is 'function' then arg else ->
-        if role is 'op'
-          if typeof arg isnt 'string'
-            throw new Error 'No channel specified.'
-          return @chanOp? and arg in @chanOp
-        if role is 'registered'
-          if @isRegistered then cb true
-          else bot.checkNickServ nickname, cb
-        if role is 'admin'
-          if @isAdmin
-            @is 'registered', (isRegistered) =>
-              cb isRegistered and @isAdmin
-          else cb false
+        switch role
+          when 'op'
+            if typeof arg isnt 'string'
+              throw new Error 'No channel specified.'
+            return @chanOp? and arg in @chanOp
+          when 'registered'
+            if @isRegistered then cb true
+            else bot.checkNickServ nickname, cb
+          when 'admin'
+            if @isAdmin
+              @is 'registered', (isRegistered) =>
+                cb isRegistered and @isAdmin
+            else cb false
 
       callback null, user
 
@@ -93,9 +75,28 @@ class UserDB extends events.EventEmitter
         callback null
       return
 
-  setIsRegistered: createUpdatePropertyFunc 'isRegistered'
+  setIsRegistered: (nickname, value, callback) ->
+    @_set 'isRegistered', nickname, value, callback
 
-  setIsAdmin:  createUpdatePropertyFunc 'isAdmin'
+  setIsAdmin: (nickname, value, callback) ->
+    @_set 'isAdmin', nickname, value, callback
+
+  _set: (property, nickname, value, callback) ->
+    @emit 'debug', "Setting #{property} for '#{nickname}' to #{value}."
+    @_getOrDie nickname, (err, user) =>
+      if err?
+        user = createDefaultUser()
+        user.nickname = nickname
+        user[property] = value
+        @db.set nickname, user, (err) ->
+          if err? then callback new Error "Can't create user '#{nickname}' with #{property} set to #{value}."
+          else callback null
+      else
+        update = {}
+        update[property] = value
+        @db.update nickname, update, (err) ->
+          if err? then callback new Error "Can't set #{property} to #{value} for user '#{nickname}'."
+          else callback null
 
   _getOrDie: (nickname, callback, shallow) ->
     shallow = shallow ? false

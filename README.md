@@ -181,6 +181,8 @@ Sets whether the user is an admin.
 
 **Note:** a user can be made admin while he or she is not registered with NickServ, but `user.is('admin')` will only report `true` while the user is registered.
 
+Alternatively, you can use `user.makeAdmin(cb)` and `user.unmakeAdmin(cb)`.
+
 
 ### Get access to the bot in your plugin
 

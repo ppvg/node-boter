@@ -50,6 +50,8 @@ class Bot extends events.EventEmitter
           @client.send 'KICK', channel, nickname, reason ? ''
         user.setIsAdmin = (isAdmin, callback) =>
           @users.setIsAdmin user.nickname, isAdmin, callback
+        user.makeAdmin = (callback) -> this.setIsAdmin true, callback
+        user.unmakeAdmin = (callback) -> this.setIsAdmin false, callback
         callback null, user
 
   ### Regular "public methods": ###

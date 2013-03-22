@@ -31,7 +31,7 @@ task 'coverage', "Generate code coverage report using jscoverage (saved as cover
 
 task 'watch', "Watch src/ and test/ and run 'test' when anything changes", ->
   invoke 'watch-src'
-  args = mochaArgs.concat ['--watch', '--reporter', 'min']
+  args = mochaArgs.concat ['--watch', '--reporter', 'min', '-G']
   cp.spawn mochaPath, args, {stdio: 'inherit'}
 
 task 'watch-src', "Watch src/ and run 'build' when anything changes", ->

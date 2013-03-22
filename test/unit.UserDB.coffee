@@ -87,7 +87,7 @@ describe 'UserDB', ->
           expect(nickname).to.equal 'user'
           callback null, {}
         db.get 'user', (err, user) ->
-          should.not.exist err
+          expect(err).to.not.exist
           expect(user).to.be.a.object
           done()
 
@@ -228,7 +228,7 @@ describe 'UserDB', ->
 
             db.setChanOp '#hack42', 'user', true, (err) ->
               expect(updateCalled).to.be.true
-              should.not.exist err
+              expect(err).to.not.exist
               done()
 
         describe "when user doesn't exist", ->
@@ -246,7 +246,7 @@ describe 'UserDB', ->
 
             db.setChanOp '#hack42', 'user', true, (err) ->
               expect(setCalled).to.be.true
-              should.not.exist err
+              expect(err).to.not.exist
               done()
 
       describe 'when setting false', ->
@@ -264,7 +264,7 @@ describe 'UserDB', ->
 
             db.setChanOp '#hack42', 'user', false, (err) ->
               expect(updateCalled).to.be.true
-              should.not.exist err
+              expect(err).to.not.exist
               done()
 
         describe "when the user doesn't exist", ->
@@ -282,7 +282,7 @@ describe 'UserDB', ->
 
             db.setChanOp '#hack42', 'user', false, (err) ->
               expect(called).to.be.false
-              should.not.exist err
+              expect(err).to.not.exist
               done()
 
     createTestPropertyShouldBeUpdated = (property, funcName, startVal, endVal) ->
@@ -301,7 +301,7 @@ describe 'UserDB', ->
 
         db[funcName] 'user', true, (err) ->
           expect(updateCalled).to.be.true
-          should.not.exist err
+          expect(err).to.not.exist
           done()
 
     createTestUserShouldBeCreated = (property, funcName, val) ->
@@ -319,7 +319,7 @@ describe 'UserDB', ->
 
         db[funcName] 'user', val, (err) ->
           expect(setCalled).to.be.true
-          should.not.exist err
+          expect(err).to.not.exist
           done()
 
     describe '#setIsRegistered', ->
