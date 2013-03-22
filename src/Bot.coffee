@@ -39,7 +39,7 @@ class Bot extends events.EventEmitter
   checkNickServ: (nickname, callback) =>
     @_queueNickServCheck nickname, callback
 
-  getUser: (nickname, callback) ->
+  getUser: (nickname, callback) =>
     @users.get nickname, (err, user) =>
       if err?
         callback err

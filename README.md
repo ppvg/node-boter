@@ -173,8 +173,8 @@ Kick the user from the given `channel` for the given `reason` (optional). Only w
 
 Sets whether the user is an admin.
 
-    user.setIsAdmin(true, function(success) {
-      if (success) {
+    user.setIsAdmin(true, function(error) {
+      if (!error) {
         console.log("User", user.username, "successfully made admin.");
       }
     });
