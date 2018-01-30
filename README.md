@@ -256,7 +256,7 @@ Alternatively, you can use `npm [command]` instead of `cake [command]` (they're 
 
 For testing, _boter_ uses [Mocha][1] and [should.js][2]. In addition, [Mockery][3] and [sinon][4] are used to test in isolation (with a mock of `node_irc`).
 
-[1]: http://visionmedia.github.com/mocha/
+[1]: http://mochajs.org/
 [2]: https://github.com/visionmedia/should.js
 [3]: https://github.com/mfncooper/mockery
 [4]: http://sinonjs.org/
